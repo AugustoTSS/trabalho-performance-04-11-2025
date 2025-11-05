@@ -1,0 +1,65 @@
+import java.util.*;
+import java.util.concurrent.CountDownLatch;
+
+public class 1:1 {
+
+    // Configuração da carga
+    static final int VEZES_POR_THREAD = 10;   // cada thread repete a soma 10 vezes
+    static final int LIMITE_SOMA      = 20_000; // soma de 1 até este número
+
+    // Faz uma soma simples: 1 + 2 + ... + LIMITE_SOMA
+    static long somarAte(int limite) {
+        long total = 0;
+        for (int i = 1; i <= limite; i++) {
+            total += i;
+        }
+        return total;
+    }
+
+    // Trabalho da “thread usuário”: repet a soma algumas vezes
+    static long tarefaSomar() {
+        long acumulado = 0;
+        for (int v = 0; v < VEZES_POR_THREAD; v++) {
+            acumulado += somarAte(LIMITE_SOMA);
+        }
+        return acumulado;
+    }
+
+    public static void main(String[] args) throws Exception {
+        // Uso: java 1:1 10,100 ,500,  1000
+        String listaN = args.length > 0 ? args[0] : "10,100,500,1000";
+        int[] Ns = Arrays.stream(listaN.split(",")).mapToInt(Integer::parseInt).toArray();
+
+        for (int N : Ns) {
+            // Onde cada thread vai guardar seu resultado 
+            long[] resultados = new long[N];
+
+            // Dispara todas quase ao mesmo tempo
+            CountDownLatch largada = new CountDownLatch(1);
+            List<Thread> threads = new ArrayList<>(N);
+
+            for (int i = 0; i < N; i++) {
+                final int id = i;
+                Thread t = new Thread(() -> {
+                    try {
+                        largada.await();
+                        resultados[id] = tarefaSomar();
+                    } catch (InterruptedException ignored) {}
+                });
+                threads.add(t);
+                t.start();
+            }
+
+            long inicio = System.nanoTime();
+            largada.countDown();           // “valendo!”
+            for (Thread t : threads) t.join();
+            long fim = System.nanoTime();
+
+            // Usa o resultado fora do cronômetro, só para garantir
+            long conferido = 0; for (long r : resultados) conferido += r;
+
+            double tempoMs = (fim - inicio) / 1e6;
+            System.out.printf("1:1  | N=%-5d | tempo=%.3f ms | check=%d%n", N, tempoMs, conferido);
+        }
+    }
+}
