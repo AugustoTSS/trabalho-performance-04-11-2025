@@ -1,0 +1,59 @@
+import java.util.*;
+import java.util.concurrent.*;
+
+public class NM {
+
+    // Mesma carga do 1:1
+    static final int VEZES_POR_THREAD = 10;
+    static final int LIMITE_SOMA      = 20_000;
+
+    // Número fixo de threads do SO que vão carregar N tarefas
+    static final int M = 15;
+
+    static long somarAte(int limite) {
+        long total = 0;
+        for (int i = 1; i <= limite; i++) {
+            total += i;
+        }
+        return total;
+    }
+
+    static long tarefaSomar() {
+        long acumulado = 0;
+        for (int v = 0; v < VEZES_POR_THREAD; v++) {
+            acumulado += somarAte(LIMITE_SOMA);
+        }
+        return acumulado;
+    }
+
+    public static void main(String[] args) throws Exception {
+        // Uso: java nm10,100,500,1000
+        String listaN = args.length > 0 ? args[0] : "10,100,500,1000";
+        int[] Ns = Arrays.stream(listaN.split(",")).mapToInt(Integer::parseInt).toArray();
+
+        ExecutorService pool = Executors.newFixedThreadPool(M);
+
+        for (int N : Ns) {
+            // Prepara N tarefas, cada uma executa a mesma soma
+            List<Callable<Long>> tarefas = new ArrayList<>(N);
+            for (int i = 0; i < N; i++) {
+                tarefas.add(() -> tarefaSomar());
+            }
+
+            long inicio = System.nanoTime();
+            // invokeAll executa tudo e devolve a lista de futuros quando acaba
+            List<Future<Long>> futuros = pool.invokeAll(tarefas);
+            long fim = System.nanoTime();
+
+            // Usa os resultados (fora do cronnometro)
+            long conferido = 0;
+            for (Future<Long> f : futuros) conferido += f.get();
+
+            double tempoMs = (fim - inicio) / 1e6;
+            System.out.printf("N:M  | N=%-5d | M=%-2d | tempo=%.3f ms | check=%d%n", N, M, tempoMs, conferido);
+        }
+
+        pool.shutdown();
+    }
+}
+
